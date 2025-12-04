@@ -1,28 +1,91 @@
 # Dependencies
-/node_modules
+node_modules/
+**/node_modules/
+.venv/
+venv/
+env/
+ENV/
+.idea_modules/
 
 # Build outputs
+dist/
+build/
+**/dist/
+**/build/
+.next/
+.out/
+coverage/
+htmlcov/
+.cache/
+.parcel-cache/
+.turbo/
 
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
 
 # System files
-
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Environment variables
 .env
+.env.*
+*.env.local
 
 # Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+debug.log
 
-
-# IDE files
-
+# IDE / Editor files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*.orig
+*.bk
+.history/
 
 # Temporary files
-
+tmp/
+temp/
+*.tmp
+*.temp
 
 # Coverage directory
-
+.coverage
+.coverage.*
+coverage.xml
+pytestdebug.log
 
 # Test output
+junit.xml
+test-results/
+reports/
 
+# Data / generated artifacts
+data/*.db
+fnd-agent/data/*.db
+*.sqlite
+*.sqlite3
 
 # Miscellaneous
+*.pid
+*.log.*
+*.bak
+*.old
