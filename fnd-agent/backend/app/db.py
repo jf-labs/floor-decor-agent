@@ -2,8 +2,12 @@ from pathlib import Path
 import sqlite3
 from typing import Generator
 
-# BASE_DIR = repo root (FND-AGENT-1)
-BASE_DIR = Path(__file__).resolve().parents[2]
+# __file__ = .../fnd-agent-1/fnd-agent/backend/app/db.py
+# parents[0] = app
+# parents[1] = backend
+# parents[2] = fnd-agent
+# parents[3] = fnd-agent-1  <-- repo root
+BASE_DIR = Path(__file__).resolve().parents[3]
 DB_PATH = BASE_DIR / "data" / "fnd_products.db"
 
 
@@ -15,8 +19,8 @@ def get_connection() -> sqlite3.Connection:
 
 def get_db() -> Generator[sqlite3.Connection, None, None]:
     """
-    FastAPI dependency: open a connection per request and close it
-    afterwards.
+    FastAPI dependency: opens a connection for each request,
+    and closes it when the request is done.
     """
     conn = get_connection()
     try:

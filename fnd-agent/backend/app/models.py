@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional, Literal
 from pydantic import BaseModel
 
 
@@ -33,7 +33,24 @@ class ProductRecommendedItem(BaseModel):
 
 
 class ProductDetail(BaseModel):
+    """
+    Full product payload used by /products/{sku}.
+    """
     product: Product
     specs: List[ProductSpec]
     documents: List[ProductDocument]
     recommended_items: List[ProductRecommendedItem]
+
+
+class UsageCheckRequest(BaseModel):
+    # we’ll add more use_case options later
+    use_case: Literal["bathroom_floor"]
+
+
+class UsageCheckResponse(BaseModel):
+    sku: str
+    use_case: str
+    ok: Optional[bool]
+    confidence: float
+    reason: str
+    supporting_specs: Dict[str, str]
