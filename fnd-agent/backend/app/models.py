@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional, Literal
+from enum import Enum
+from typing import Dict, List, Optional
+
 from pydantic import BaseModel
 
 
@@ -42,14 +44,24 @@ class ProductDetail(BaseModel):
     recommended_items: List[ProductRecommendedItem]
 
 
+class UseCase(str, Enum):
+    bathroom_floor = "bathroom_floor"
+    shower_floor = "shower_floor"
+    shower_wall = "shower_wall"
+    fireplace_surround = "fireplace_surround"
+    radiant_heat = "radiant_heat"
+    # add more later as needed, e.g.:
+    # stairs = "stairs"
+    # pool_waterline = "pool_waterline"
+
+
 class UsageCheckRequest(BaseModel):
-    # we’ll add more use_case options later
-    use_case: Literal["bathroom_floor"]
+    use_case: UseCase
 
 
 class UsageCheckResponse(BaseModel):
     sku: str
-    use_case: str
+    use_case: UseCase
     ok: Optional[bool]
     confidence: float
     reason: str
