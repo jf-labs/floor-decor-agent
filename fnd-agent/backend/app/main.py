@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import product_loader, rules_engine
 from .api_products import router as products_router
-from .models import UsageCheckRequest, UsageCheckResponse, UseCase
+from .models import ProductDetail, UsageCheckRequest, UsageCheckResponse, UseCase
 
 app = FastAPI(title="FND Agent API", version="0.1.0")
 
@@ -70,24 +70,21 @@ def check_product_usage(
         raise HTTPException(status_code=404, detail="Product not found")
 
     # detail can be a Pydantic ProductDetail or a dict
-    if hasattr(detail, "specs"):
-        specs = detail.specs
-    else:
-        specs = detail["specs"]
+    if not hasattr(detail, "specs"):
+        detail = ProductDetail(**detail)
 
-    spec_map = rules_engine.build_spec_map(specs)
     uc = payload.use_case
 
     if uc == UseCase.bathroom_floor:
-        result = rules_engine.check_bathroom_floor(spec_map)
+        result = rules_engine.check_bathroom_floor(detail)
     elif uc == UseCase.shower_floor:
-        result = rules_engine.check_shower_floor(spec_map)
+        result = rules_engine.check_shower_floor(detail)
     elif uc == UseCase.shower_wall:
-        result = rules_engine.check_shower_wall(spec_map)
+        result = rules_engine.check_shower_wall(detail)
     elif uc == UseCase.fireplace_surround:
-        result = rules_engine.check_fireplace_surround(spec_map)
+        result = rules_engine.check_fireplace_surround(detail)
     elif uc == UseCase.radiant_heat:
-        result = rules_engine.check_radiant_heat(spec_map)
+        result = rules_engine.check_radiant_heat(detail)
     else:
         raise HTTPException(status_code=400, detail="Unsupported use case")
 
