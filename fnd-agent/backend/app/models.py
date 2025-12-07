@@ -47,6 +47,12 @@ class UseCase(str, Enum):
     shower_wall = "shower_wall"
     fireplace_surround = "fireplace_surround"
     radiant_heat = "radiant_heat"
+    outdoor_patio = "outdoor_patio"
+    pool_deck = "pool_deck"
+    kitchen_backsplash = "kitchen_backsplash"
+    commercial_heavy_floor = "commercial_heavy_floor"
+    laundry_room_floor = "laundry_room_floor"
+    basement_floor = "basement_floor"
 
 
 class UsageCheckRequest(BaseModel):

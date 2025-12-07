@@ -3,7 +3,13 @@ export type UseCase =
   | "shower_floor"
   | "shower_wall"
   | "fireplace_surround"
-  | "radiant_heat";
+  | "radiant_heat"
+  | "outdoor_patio"
+  | "pool_deck"
+  | "kitchen_backsplash"
+  | "commercial_heavy_floor"
+  | "laundry_room_floor"
+  | "basement_floor";
 
 export interface Product {
   sku: string;

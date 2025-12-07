@@ -12,8 +12,14 @@ const USE_CASE_LABELS: Record<UseCase, string> = {
   bathroom_floor: "Bathroom floor",
   shower_floor: "Shower floor",
   shower_wall: "Shower wall",
-  fireplace_surround: "Fireplace surround",
   radiant_heat: "Radiant heat",
+  fireplace_surround: "Fireplace surround",
+  laundry_room_floor: "Laundry / mudroom floor",
+  basement_floor: "Basement floor",
+  outdoor_patio: "Outdoor patio",
+  pool_deck: "Pool deck / wet outdoor",
+  kitchen_backsplash: "Kitchen backsplash",
+  commercial_heavy_floor: "Commercial heavy floor",
 };
 
 function confidenceToPercent(c: number): string {

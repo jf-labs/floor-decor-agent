@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,6 +47,20 @@ def health():
 # /products: search + detail
 app.include_router(products_router, prefix="/products", tags=["products"])
 
+USE_CASE_CHECKERS: dict[UseCase, Callable[[ProductDetail], UsageCheckResponse]] = {
+    UseCase.bathroom_floor: rules_engine.check_bathroom_floor,
+    UseCase.shower_floor: rules_engine.check_shower_floor,
+    UseCase.shower_wall: rules_engine.check_shower_wall,
+    UseCase.fireplace_surround: rules_engine.check_fireplace_surround,
+    UseCase.radiant_heat: rules_engine.check_radiant_heat,
+    UseCase.outdoor_patio: rules_engine.check_outdoor_patio,
+    UseCase.pool_deck: rules_engine.check_pool_deck,
+    UseCase.kitchen_backsplash: rules_engine.check_kitchen_backsplash,
+    UseCase.commercial_heavy_floor: rules_engine.check_commercial_heavy_floor,
+    UseCase.laundry_room_floor: rules_engine.check_laundry_room_floor,
+    UseCase.basement_floor: rules_engine.check_basement_floor,
+}
+
 
 def get_db():
     conn = product_loader.get_connection()
@@ -73,26 +88,8 @@ def check_product_usage(
     if not hasattr(detail, "specs"):
         detail = ProductDetail(**detail)
 
-    uc = payload.use_case
-
-    if uc == UseCase.bathroom_floor:
-        result = rules_engine.check_bathroom_floor(detail)
-    elif uc == UseCase.shower_floor:
-        result = rules_engine.check_shower_floor(detail)
-    elif uc == UseCase.shower_wall:
-        result = rules_engine.check_shower_wall(detail)
-    elif uc == UseCase.fireplace_surround:
-        result = rules_engine.check_fireplace_surround(detail)
-    elif uc == UseCase.radiant_heat:
-        result = rules_engine.check_radiant_heat(detail)
-    else:
+    checker = USE_CASE_CHECKERS.get(payload.use_case)
+    if checker is None:
         raise HTTPException(status_code=400, detail="Unsupported use case")
 
-    return UsageCheckResponse(
-        sku=sku,
-        use_case=uc,
-        ok=result.ok,
-        confidence=result.confidence,
-        reason=result.reason,
-        supporting_specs=result.supporting_specs,
-    )
+    return checker(detail)
