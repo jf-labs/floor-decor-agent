@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import product_loader, rules_engine
@@ -7,10 +9,25 @@ from .models import UsageCheckRequest, UsageCheckResponse, UseCase
 
 app = FastAPI(title="FND Agent API", version="0.1.0")
 
-origins = [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-]
+
+def _load_allowed_origins() -> list[str]:
+    """
+    Build the list of allowed CORS origins.
+
+    Vite's dev server grabs the next free port (for example 5174) when
+    5173 is busy, so we allow a few common ports by default and let
+    deployments override the list with FND_ALLOWED_ORIGINS.
+    """
+    env_val = os.getenv("FND_ALLOWED_ORIGINS")
+    if env_val:
+        return [origin.strip() for origin in env_val.split(",") if origin.strip()]
+
+    dev_hosts = ("127.0.0.1", "localhost")
+    dev_ports = ("5173", "5174", "5175")
+    return [f"http://{host}:{port}" for host in dev_hosts for port in dev_ports]
+
+
+origins = _load_allowed_origins()
 
 app.add_middleware(
     CORSMiddleware,

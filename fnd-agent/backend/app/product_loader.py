@@ -148,3 +148,90 @@ def search_products(
         )
         for r in rows
     ]
+
+def load_product_with_details(conn: sqlite3.Connection, sku: str) -> ProductDetail | None:
+    """
+    Load a product and its related specs/documents/recommended_items
+    from SQLite and return a ProductDetail model.
+    """
+    # 1) main product
+    cur = conn.execute(
+        """
+        SELECT
+            sku,
+            name,
+            url,
+            category_slug,
+            price_per_sqft,
+            price_per_box,
+            size_primary,
+            color,
+            finish,
+            store_id,
+            last_scraped_at
+        FROM products
+        WHERE sku = ?
+        """,
+        (sku,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+
+    product = Product(**dict(row))
+
+    # 2) specs
+    cur = conn.execute(
+        """
+        SELECT spec_key, spec_value
+        FROM product_specs
+        WHERE sku = ?
+        ORDER BY spec_key
+        """,
+        (sku,),
+    )
+    specs = [
+        ProductSpec(spec_key=r["spec_key"], spec_value=r["spec_value"])
+        for r in cur.fetchall()
+    ]
+
+    # 3) documents
+    cur = conn.execute(
+        """
+        SELECT doc_label, doc_url
+        FROM product_documents
+        WHERE sku = ?
+        ORDER BY doc_label
+        """,
+        (sku,),
+    )
+    documents = [
+        ProductDocument(doc_label=r["doc_label"], doc_url=r["doc_url"])
+        for r in cur.fetchall()
+    ]
+
+    # 4) recommended items
+    cur = conn.execute(
+        """
+        SELECT rec_name, rec_url, rec_sku
+        FROM product_recommended_items
+        WHERE sku = ?
+        ORDER BY rec_name
+        """,
+        (sku,),
+    )
+    recommended_items = [
+        ProductRecommendedItem(
+            rec_name=r["rec_name"],
+            rec_url=r["rec_url"],
+            rec_sku=r["rec_sku"],
+        )
+        for r in cur.fetchall()
+    ]
+
+    return ProductDetail(
+        product=product,
+        specs=specs,
+        documents=documents,
+        recommended_items=recommended_items,
+    )
