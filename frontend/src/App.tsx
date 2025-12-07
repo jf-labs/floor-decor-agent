@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type {
+import type{
   Product,
   ProductDetail,
   UseCase,
   UsageCheckResponse,
 } from "./types";
-
 import { searchProducts, getProductDetail, checkUsage } from "./api";
 import "./App.css";
 

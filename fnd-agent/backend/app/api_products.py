@@ -1,85 +1,78 @@
-from typing import List
-import sqlite3
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from .db import get_db
-from .models import (
-    Product,
-    ProductDetail,
-    UsageCheckRequest,
-    UsageCheckResponse,
-    UseCase,
-)
-from .product_loader import fetch_product_detail, search_products
-from . import rules_engine
+from . import product_loader
+from .models import Product, ProductDetail
 
 router = APIRouter()
+
+
+def get_db():
+    conn = product_loader.get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
+@router.get("", response_model=List[Product])
+def search_products(
+    q: Optional[str] = Query(
+        None, description="Search by SKU, name, or category"
+    ),
+    limit: int = 25,
+    conn=Depends(get_db),
+):
+    """
+    Search products by SKU, name, or category_slug.
+    Returns a plain list[Product] (no wrapper object).
+    """
+    sql = """
+        SELECT
+            sku,
+            name,
+            url,
+            category_slug,
+            price_per_sqft,
+            price_per_box,
+            size_primary,
+            color,
+            finish,
+            store_id,
+            last_scraped_at
+        FROM products
+    """
+    params: list = []
+
+    if q:
+        q_like = f"%{q}%"
+        sql += """
+            WHERE
+                sku LIKE ?
+                OR (name IS NOT NULL AND name LIKE ?)
+                OR (category_slug IS NOT NULL AND category_slug LIKE ?)
+        """
+        params.extend([q_like, q_like, q_like])
+
+    sql += " ORDER BY name LIMIT ?"
+    params.append(limit)
+
+    cur = conn.execute(sql, params)
+    rows = cur.fetchall()
+
+    return [Product(**dict(row)) for row in rows]
 
 
 @router.get("/{sku}", response_model=ProductDetail)
 def get_product(
     sku: str,
-    db: sqlite3.Connection = Depends(get_db),
-) -> ProductDetail:
+    conn=Depends(get_db),
+):
     """
-    Return full product details for a given SKU:
-    - core product info
-    - specs
-    - documents
-    - recommended items
+    Get full product details (product + specs + docs + recommended_items).
     """
-    try:
-        return fetch_product_detail(db, sku)
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"SKU {sku} not found")
-
-
-@router.get("", response_model=List[Product])
-def search_products_endpoint(
-    q: str,
-    limit: int = 20,
-    db: sqlite3.Connection = Depends(get_db),
-) -> List[Product]:
-    """
-    Basic search endpoint:
-    /products?q=hickory&limit=20
-    """
-    return search_products(db, q, limit)
-
-
-@router.post("/{sku}/usage", response_model=UsageCheckResponse)
-def check_usage(
-    sku: str,
-    payload: UsageCheckRequest,
-    db: sqlite3.Connection = Depends(get_db),
-) -> UsageCheckResponse:
-    """
-    Check a specific usage scenario for a SKU.
-    use_case is an Enum (UseCase) with values like:
-      - bathroom_floor
-      - shower_floor
-      - shower_wall
-      - fireplace_surround
-      - radiant_heat
-    """
-    try:
-        detail: ProductDetail = fetch_product_detail(db, sku)
-    except ValueError:
-        raise HTTPException(status_code=404, detail=f"SKU {sku} not found")
-
-    uc = payload.use_case
-
-    if uc == UseCase.bathroom_floor:
-        return rules_engine.check_bathroom_floor(detail)
-    if uc == UseCase.shower_floor:
-        return rules_engine.check_shower_floor(detail)
-    if uc == UseCase.shower_wall:
-        return rules_engine.check_shower_wall(detail)
-    if uc == UseCase.fireplace_surround:
-        return rules_engine.check_fireplace_surround(detail)
-    if uc == UseCase.radiant_heat:
-        return rules_engine.check_radiant_heat(detail)
-
-    # if we get here, something slipped past validation
-    raise HTTPException(status_code=400, detail="Unsupported use_case")
+    detail = product_loader.load_product_with_details(conn, sku)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return detail

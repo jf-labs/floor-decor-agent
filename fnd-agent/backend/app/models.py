@@ -35,9 +35,6 @@ class ProductRecommendedItem(BaseModel):
 
 
 class ProductDetail(BaseModel):
-    """
-    Full product payload used by /products/{sku}.
-    """
     product: Product
     specs: List[ProductSpec]
     documents: List[ProductDocument]
@@ -50,9 +47,6 @@ class UseCase(str, Enum):
     shower_wall = "shower_wall"
     fireplace_surround = "fireplace_surround"
     radiant_heat = "radiant_heat"
-    # add more later as needed, e.g.:
-    # stairs = "stairs"
-    # pool_waterline = "pool_waterline"
 
 
 class UsageCheckRequest(BaseModel):

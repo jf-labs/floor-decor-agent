@@ -1,5 +1,6 @@
 from typing import List
 import sqlite3
+from pathlib import Path
 
 from .models import (
     Product,
@@ -9,6 +10,18 @@ from .models import (
     ProductDetail,
 )
 
+# Path to: C:\Users\j0sep\fnd-agent-1\data\fnd_products.db
+DB_PATH = Path(__file__).resolve().parents[3] / "data" / "fnd_products.db"
+
+
+def get_connection() -> sqlite3.Connection:
+    """
+    Open a SQLite connection to the fnd_products.db with row_factory set,
+    so dict(row) works everywhere.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def fetch_product_detail(db: sqlite3.Connection, sku: str) -> ProductDetail:
     cur = db.cursor()
