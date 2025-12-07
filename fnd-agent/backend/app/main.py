@@ -1,9 +1,26 @@
 from fastapi import FastAPI, Depends, HTTPException
-from . import product_loader, rules_engine, api_products
-from .api_products import router as products_router
-from .models import UsageCheckRequest, UsageCheckResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from . import product_loader, rules_engine
+from .api_products import router as products_router
+from .models import UsageCheckRequest, UsageCheckResponse, UseCase
+
+
+app = FastAPI(title="FND Agent API", version="0.1.0")
+
+# CORS so the Vite frontend (localhost:5173) can call the API
+origins = [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -11,12 +28,17 @@ def health():
     return {"status": "ok"}
 
 
-# mount product endpoints at /products
+# mount product endpoints at /products (search + detail)
 app.include_router(products_router, prefix="/products", tags=["products"])
 
+
 def get_db():
-    # however you're opening the SQLite connection now
-    return product_loader.get_connection()
+    """Yield a SQLite connection for each request."""
+    conn = product_loader.get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 @app.post("/products/{sku}/usage", response_model=UsageCheckResponse)
@@ -25,23 +47,30 @@ def check_product_usage(
     payload: UsageCheckRequest,
     conn=Depends(get_db),
 ):
-    data = product_loader.load_product_with_details(conn, sku)
-    if data is None:
+    """
+    Check whether a product (by SKU) is suitable for a given use case.
+
+    Uses rules_engine.* functions and the scraped specs from SQLite.
+    """
+    detail = product_loader.load_product_with_details(conn, sku)
+    if detail is None:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    product, specs, docs, recs = data
-    spec_map = rules_engine.build_spec_map(specs)
+    uc = payload.use_case
 
-    if payload.use_case == "bathroom_floor":
-        result = rules_engine.check_bathroom_floor(spec_map)
+    if uc == UseCase.bathroom_floor:
+        result = rules_engine.check_bathroom_floor(detail)
+    elif uc == UseCase.shower_floor:
+        result = rules_engine.check_shower_floor(detail)
+    elif uc == UseCase.shower_wall:
+        result = rules_engine.check_shower_wall(detail)
+    elif uc == UseCase.fireplace_surround:
+        result = rules_engine.check_fireplace_surround(detail)
+    elif uc == UseCase.radiant_heat:
+        result = rules_engine.check_radiant_heat(detail)
     else:
+        # In case you add new enum values but forget to wire them here
         raise HTTPException(status_code=400, detail="Unsupported use case")
 
-    return UsageCheckResponse(
-        sku=product.sku,
-        use_case=payload.use_case,
-        ok=result.ok,
-        confidence=result.confidence,
-        reason=result.reason,
-        supporting_specs=result.supporting_specs,
-    )
+    # rules_engine already returns a UsageCheckResponse, so just return it
+    return result
