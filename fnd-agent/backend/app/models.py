@@ -53,6 +53,14 @@ class UseCase(str, Enum):
     commercial_heavy_floor = "commercial_heavy_floor"
     laundry_room_floor = "laundry_room_floor"
     basement_floor = "basement_floor"
+    steam_shower_enclosure = "steam_shower_enclosure"
+    outdoor_kitchen_counter = "outdoor_kitchen_counter"
+    garage_workshop_floor = "garage_workshop_floor"
+    driveway_paver = "driveway_paver"
+    stair_tread = "stair_tread"
+    commercial_kitchen_floor = "commercial_kitchen_floor"
+    pool_interior = "pool_interior"
+    exterior_wall_cladding = "exterior_wall_cladding"
 
 
 class UsageCheckRequest(BaseModel):

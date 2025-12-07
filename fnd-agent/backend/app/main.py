@@ -59,6 +59,14 @@ USE_CASE_CHECKERS: dict[UseCase, Callable[[ProductDetail], UsageCheckResponse]] 
     UseCase.commercial_heavy_floor: rules_engine.check_commercial_heavy_floor,
     UseCase.laundry_room_floor: rules_engine.check_laundry_room_floor,
     UseCase.basement_floor: rules_engine.check_basement_floor,
+    UseCase.steam_shower_enclosure: rules_engine.check_steam_shower_enclosure,
+    UseCase.outdoor_kitchen_counter: rules_engine.check_outdoor_kitchen_counter,
+    UseCase.garage_workshop_floor: rules_engine.check_garage_workshop_floor,
+    UseCase.driveway_paver: rules_engine.check_driveway_paver,
+    UseCase.stair_tread: rules_engine.check_stair_tread,
+    UseCase.commercial_kitchen_floor: rules_engine.check_commercial_kitchen_floor,
+    UseCase.pool_interior: rules_engine.check_pool_interior,
+    UseCase.exterior_wall_cladding: rules_engine.check_exterior_wall_cladding,
 }
 
 

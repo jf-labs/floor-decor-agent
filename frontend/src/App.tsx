@@ -16,10 +16,18 @@ const USE_CASE_LABELS: Record<UseCase, string> = {
   fireplace_surround: "Fireplace surround",
   laundry_room_floor: "Laundry / mudroom floor",
   basement_floor: "Basement floor",
+  steam_shower_enclosure: "Steam shower enclosure",
+  commercial_heavy_floor: "Commercial heavy floor",
+  commercial_kitchen_floor: "Commercial kitchen floor",
+  garage_workshop_floor: "Garage / workshop floor",
+  stair_tread: "Stair tread / riser",
   outdoor_patio: "Outdoor patio",
   pool_deck: "Pool deck / wet outdoor",
+  pool_interior: "Pool interior / submerged",
   kitchen_backsplash: "Kitchen backsplash",
-  commercial_heavy_floor: "Commercial heavy floor",
+  outdoor_kitchen_counter: "Outdoor kitchen counter",
+  driveway_paver: "Driveway / vehicle paver",
+  exterior_wall_cladding: "Exterior wall cladding",
 };
 
 function confidenceToPercent(c: number): string {

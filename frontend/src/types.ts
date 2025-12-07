@@ -9,7 +9,15 @@ export type UseCase =
   | "kitchen_backsplash"
   | "commercial_heavy_floor"
   | "laundry_room_floor"
-  | "basement_floor";
+  | "basement_floor"
+  | "steam_shower_enclosure"
+  | "outdoor_kitchen_counter"
+  | "garage_workshop_floor"
+  | "driveway_paver"
+  | "stair_tread"
+  | "commercial_kitchen_floor"
+  | "pool_interior"
+  | "exterior_wall_cladding";
 
 export interface Product {
   sku: string;
