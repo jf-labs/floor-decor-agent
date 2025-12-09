@@ -64,3 +64,20 @@ export interface UsageCheckResponse {
   reason: string;
   supporting_specs: Record<string, string>;
 }
+
+export type ChatRole = "user" | "assistant";
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
+}
+
+export interface ChatRequestPayload {
+  messages: ChatMessage[];
+  active_sku?: string | null;
+}
+
+export interface ChatResponsePayload {
+  message: ChatMessage;
+  referenced_products: ProductDetail[];
+}

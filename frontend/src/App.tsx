@@ -1,49 +1,70 @@
-import { useEffect, useMemo, useState } from "react";
-import type{
+import { useEffect, useRef, useState } from "react";
+import type {
   Product,
   ProductDetail,
-  UseCase,
-  UsageCheckResponse,
+  ChatMessage,
 } from "./types";
-import { searchProducts, getProductDetail, checkUsage } from "./api";
+import { searchProducts, getProductDetail, sendChat } from "./api";
 import "./App.css";
 
-const USE_CASE_LABELS: Record<UseCase, string> = {
-  bathroom_floor: "Bathroom floor",
-  shower_floor: "Shower floor",
-  shower_wall: "Shower wall",
-  radiant_heat: "Radiant heat",
-  fireplace_surround: "Fireplace surround",
-  laundry_room_floor: "Laundry / mudroom floor",
-  basement_floor: "Basement floor",
-  steam_shower_enclosure: "Steam shower enclosure",
-  commercial_heavy_floor: "Commercial heavy floor",
-  commercial_kitchen_floor: "Commercial kitchen floor",
-  garage_workshop_floor: "Garage / workshop floor",
-  stair_tread: "Stair tread / riser",
-  outdoor_patio: "Outdoor patio",
-  pool_deck: "Pool deck / wet outdoor",
-  pool_interior: "Pool interior / submerged",
-  kitchen_backsplash: "Kitchen backsplash",
-  outdoor_kitchen_counter: "Outdoor kitchen counter",
-  driveway_paver: "Driveway / vehicle paver",
-  exterior_wall_cladding: "Exterior wall cladding",
+const IMPORTANT_SPEC_KEYS = [
+  "Bathroom Floor Use",
+  "Shower Surface",
+  "Placement Location",
+  "Water Resistance",
+  "Frost Resistance",
+  "Radiant Heat Compatible",
+  "Installation Options",
+  "Installation Type",
+  "Material",
+];
+
+type ChatMessageWithMeta = ChatMessage & {
+  id: string;
+  referencedProducts?: ProductDetail[];
 };
 
-function confidenceToPercent(c: number): string {
-  return `${Math.round(c * 100)}%`;
+const createMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+function toSpecMap(detail: ProductDetail | null) {
+  const map: Record<string, string> = {};
+  detail?.specs.forEach((spec) => {
+    map[spec.spec_key] = spec.spec_value;
+  });
+  return map;
 }
 
-function badgeClass(ok: boolean | null): string {
-  if (ok === true) return "badge badge-ok";
-  if (ok === false) return "badge badge-bad";
-  return "badge badge-unknown";
-}
+function ProductContextCard({ detail }: { detail: ProductDetail }) {
+  const { product } = detail;
+  const specMap = toSpecMap(detail);
 
-function badgeText(ok: boolean | null): string {
-  if (ok === true) return "OK";
-  if (ok === false) return "Not recommended";
-  return "Unknown / depends";
+  return (
+    <div className="product-card">
+      <div className="product-card-header">
+        <div>
+          <p className="product-card-name">{product.name ?? "(No name)"}</p>
+          <p className="product-card-sku">SKU {product.sku}</p>
+        </div>
+        {product.category_slug && (
+          <span className="product-card-pill">{product.category_slug}</span>
+        )}
+      </div>
+      <ul className="product-card-specs">
+        {IMPORTANT_SPEC_KEYS.filter((key) => specMap[key])
+          .slice(0, 4)
+          .map((key) => (
+            <li key={key}>
+              <strong>{key}:</strong> {specMap[key]}
+            </li>
+          ))}
+      </ul>
+      {product.url && (
+        <a className="product-card-link" href={product.url} target="_blank" rel="noreferrer">
+          View on Floor &amp; Decor ↗
+        </a>
+      )}
+    </div>
+  );
 }
 
 function App() {
@@ -57,43 +78,56 @@ function App() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
-  const [selectedUseCase, setSelectedUseCase] =
-    useState<UseCase>("bathroom_floor");
-  const [usageResult, setUsageResult] =
-    useState<UsageCheckResponse | null>(null);
-  const [usageError, setUsageError] = useState<string | null>(null);
-  const [isCheckingUsage, setIsCheckingUsage] = useState(false);
+  const [messages, setMessages] = useState<ChatMessageWithMeta[]>([
+    {
+      id: createMessageId(),
+      role: "assistant",
+      content:
+        "Hi! I’m the FND Agent. Ask me about Floor & Decor products, specs, or whether a SKU is safe for a specific use. I can search SKUs, pull details, and run the rules engine for you.",
+    },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const canCheckUsage = useMemo(
-    () => !!selectedSku && !!detail,
-    [selectedSku, detail]
-  );
-
-  // Automatically load detail when selectedSku changes
   useEffect(() => {
     if (!selectedSku) {
       setDetail(null);
-      setUsageResult(null);
       setDetailError(null);
       return;
     }
 
+    let cancelled = false;
     (async () => {
       setIsLoadingDetail(true);
       setDetailError(null);
-      setUsageResult(null);
       try {
-        const d = await getProductDetail(selectedSku);
-        setDetail(d);
+        const nextDetail = await getProductDetail(selectedSku);
+        if (!cancelled) {
+          setDetail(nextDetail);
+        }
       } catch (err) {
-        setDetailError(
-          err instanceof Error ? err.message : "Failed to load product"
-        );
+        if (!cancelled) {
+          setDetailError(err instanceof Error ? err.message : "Failed to load product");
+        }
       } finally {
-        setIsLoadingDetail(false);
+        if (!cancelled) {
+          setIsLoadingDetail(false);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedSku]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, isChatLoading]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,9 +136,6 @@ function App() {
     setIsSearching(true);
     setSearchError(null);
     setResults([]);
-    setSelectedSku(null);
-    setDetail(null);
-    setUsageResult(null);
 
     try {
       const items = await searchProducts(query.trim(), 25);
@@ -113,41 +144,50 @@ function App() {
         setSelectedSku(items[0].sku);
       }
     } catch (err) {
-      setSearchError(
-        err instanceof Error ? err.message : "Search failed"
-      );
+      setSearchError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleSelectProduct = (p: Product) => {
-    setSelectedSku(p.sku);
+  const handleSelectProduct = (product: Product) => {
+    setSelectedSku(product.sku);
   };
 
-  const handleCheckUsage = async () => {
-    if (!selectedSku || !detail) return;
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
 
-    setIsCheckingUsage(true);
-    setUsageError(null);
-    setUsageResult(null);
+    const userMessage: ChatMessageWithMeta = {
+      id: createMessageId(),
+      role: "user",
+      content: chatInput.trim(),
+    };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    setChatInput("");
+    setChatError(null);
+    setIsChatLoading(true);
 
     try {
-      const res = await checkUsage(selectedSku, selectedUseCase);
-      setUsageResult(res);
+      const payload = {
+        messages: nextMessages.map(({ role, content }) => ({ role, content })),
+        active_sku: selectedSku,
+      };
+      const response = await sendChat(payload);
+      const assistantMessage: ChatMessageWithMeta = {
+        id: createMessageId(),
+        role: "assistant",
+        content: response.message.content,
+        referencedProducts: response.referenced_products,
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
-      setUsageError(
-        err instanceof Error ? err.message : "Usage check failed"
-      );
+      setChatError(err instanceof Error ? err.message : "Chat request failed");
     } finally {
-      setIsCheckingUsage(false);
+      setIsChatLoading(false);
     }
   };
-
-  const selectedProduct = useMemo(
-    () => results.find((r) => r.sku === selectedSku) ?? detail?.product ?? null,
-    [results, selectedSku, detail]
-  );
 
   return (
     <div className="app-root">
@@ -156,7 +196,7 @@ function App() {
           <div>
             <h1 className="app-title">FND Agent</h1>
             <p className="app-subtitle">
-              San Leandro product usage checker · simple, spec-driven answers.
+              Hybrid product search + chat assistant powered by Floor &amp; Decor specs.
             </p>
           </div>
           <div className="app-status-dot" title="Backend assumed at :8000">
@@ -166,7 +206,6 @@ function App() {
       </header>
 
       <main className="app-main">
-        {/* Left column: search + results */}
         <section className="panel panel-left">
           <h2 className="panel-title">Search products</h2>
           <form className="search-form" onSubmit={handleSearch}>
@@ -195,39 +234,38 @@ function App() {
             {results.length === 0 && !isSearching && (
               <p className="hint">Start by searching for a product.</p>
             )}
-            {results.map((p) => (
+            {results.map((product) => (
               <button
-                key={p.sku}
+                key={product.sku}
                 className={
                   "result-item" +
-                  (p.sku === selectedSku ? " result-item-selected" : "")
+                  (product.sku === selectedSku ? " result-item-selected" : "")
                 }
                 type="button"
-                onClick={() => handleSelectProduct(p)}
+                onClick={() => handleSelectProduct(product)}
               >
                 <div className="result-title">
-                  {p.name ?? "(No name)"}{" "}
-                  <span className="result-sku">· {p.sku}</span>
+                  {product.name ?? "(No name)"}{" "}
+                  <span className="result-sku">· {product.sku}</span>
                 </div>
                 <div className="result-meta">
-                  <span>{p.category_slug ?? "Unknown category"}</span>
-                  {p.price_per_sqft && (
-                    <span className="result-price">
-                      {p.price_per_sqft.trim()}
-                    </span>
+                  <span>{product.category_slug ?? "Unknown category"}</span>
+                  {product.price_per_sqft && (
+                    <span className="result-price">{product.price_per_sqft.trim()}</span>
                   )}
                 </div>
               </button>
             ))}
           </div>
-        </section>
 
-        {/* Right column: details + usage */}
-        <section className="panel panel-right">
-          <h2 className="panel-title">Product details & usage</h2>
+          {selectedSku && (
+            <div className="active-sku-chip">
+              Active SKU: <strong>{selectedSku}</strong>
+            </div>
+          )}
 
           {isLoadingDetail && (
-            <div className="loading-box">Loading product details…</div>
+            <div className="loading-box">Fetching active product…</div>
           )}
 
           {detailError && (
@@ -236,141 +274,62 @@ function App() {
             </div>
           )}
 
-          {!selectedProduct && !isLoadingDetail && (
-            <p className="hint">
-              Select a product from the left to see its details and usage
-              rules.
-            </p>
-          )}
-
-          {selectedProduct && (
-            <div className="detail-card">
-              <div className="detail-header">
-                <h3 className="detail-name">
-                  {selectedProduct.name ?? "(No name)"}
-                </h3>
-                <span className="detail-sku">SKU {selectedProduct.sku}</span>
-              </div>
-              <div className="detail-meta-row">
-                <span>
-                  Category:{" "}
-                  <strong>
-                    {selectedProduct.category_slug ?? "Unknown"}
-                  </strong>
-                </span>
-                {selectedProduct.size_primary && (
-                  <span>
-                    Size:{" "}
-                    <strong>{selectedProduct.size_primary}</strong>
-                  </span>
-                )}
-              </div>
-              <div className="detail-meta-row">
-                {selectedProduct.price_per_sqft && (
-                  <span>
-                    {selectedProduct.price_per_sqft}
-                    {selectedProduct.price_per_box && " · "}
-                  </span>
-                )}
-                {selectedProduct.price_per_box && (
-                  <span>{selectedProduct.price_per_box}</span>
-                )}
-              </div>
-              {selectedProduct.url && (
-                <div className="detail-link-row">
-                  <a
-                    href={selectedProduct.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View on Floor &amp; Decor ↗
-                  </a>
-                </div>
-              )}
+          {detail && (
+            <div className="active-product-card">
+              <p className="section-label">Active product</p>
+              <ProductContextCard detail={detail} />
             </div>
           )}
+        </section>
 
-          {/* Usage checker */}
-          {selectedProduct && (
-            <div className="usage-card">
-              <div className="usage-header">
-                <h3>Usage checker</h3>
-                <p className="usage-subtitle">
-                  Choose a scenario and check if this SKU is suitable, based on
-                  scraped specs.
-                </p>
-              </div>
-
-              <div className="usecase-row">
-                <span className="usecase-label">Use case:</span>
-                <div className="usecase-buttons">
-                  {(Object.keys(USE_CASE_LABELS) as UseCase[]).map((uc) => (
-                    <button
-                      key={uc}
-                      type="button"
-                      className={
-                        "pill" +
-                        (uc === selectedUseCase ? " pill-active" : "")
-                      }
-                      onClick={() => setSelectedUseCase(uc)}
-                    >
-                      {USE_CASE_LABELS[uc]}
-                    </button>
-                  ))}
+        <section className="panel panel-right chat-panel">
+          <h2 className="panel-title">Chat with FND Agent</h2>
+          <div className="chat-history" ref={chatContainerRef}>
+            {messages.map((msg) => (
+              <div key={msg.id} className={`chat-message chat-${msg.role}`}>
+                <div className="chat-bubble">
+                  <p>{msg.content}</p>
                 </div>
-              </div>
-
-              <div className="usage-actions">
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  disabled={!canCheckUsage || isCheckingUsage}
-                  onClick={handleCheckUsage}
-                >
-                  {isCheckingUsage
-                    ? "Checking..."
-                    : "Check this product for this use"}
-                </button>
-              </div>
-
-              {usageError && (
-                <div className="error-box">
-                  <span>{usageError}</span>
-                </div>
-              )}
-
-              {usageResult && (
-                <div className="usage-result">
-                  <div className="usage-summary-row">
-                    <span className={badgeClass(usageResult.ok)}>
-                      {badgeText(usageResult.ok)}
-                    </span>
-                    <span className="usage-meta">
-                      Confidence:{" "}
-                      {confidenceToPercent(usageResult.confidence)}
-                    </span>
+                {msg.referencedProducts && msg.referencedProducts.length > 0 && (
+                  <div className="chat-product-stack">
+                    {msg.referencedProducts.map((product) => (
+                      <ProductContextCard
+                        key={`${msg.id}-${product.product.sku}`}
+                        detail={product}
+                      />
+                    ))}
                   </div>
-                  <p className="usage-reason">{usageResult.reason}</p>
+                )}
+              </div>
+            ))}
+            {isChatLoading && (
+              <div className="chat-message chat-assistant">
+                <div className="chat-bubble chat-bubble-loading">Thinking…</div>
+              </div>
+            )}
+          </div>
 
-                  {Object.keys(usageResult.supporting_specs).length > 0 && (
-                    <div className="usage-specs">
-                      <h4>Supporting specs</h4>
-                      <ul>
-                        {Object.entries(
-                          usageResult.supporting_specs
-                        ).map(([key, value]) => (
-                          <li key={key}>
-                            <span className="spec-key">{key}</span>
-                            <span className="spec-value">{value}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
+          {chatError && (
+            <div className="error-box">
+              <span>{chatError}</span>
             </div>
           )}
+
+          <form className="chat-input" onSubmit={handleSendMessage}>
+            <textarea
+              placeholder="Ask a question about specs, usage, or installation…"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              disabled={isChatLoading}
+            />
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={isChatLoading || !chatInput.trim()}
+            >
+              {isChatLoading ? "Sending…" : "Send"}
+            </button>
+          </form>
         </section>
       </main>
     </div>

@@ -3,6 +3,8 @@ import type {
   ProductDetail,
   UseCase,
   UsageCheckResponse,
+  ChatRequestPayload,
+  ChatResponsePayload,
 } from "./types";
 
 const API_BASE =
@@ -47,4 +49,17 @@ export async function checkUsage(
     body: JSON.stringify({ use_case: useCase }),
   });
   return handle<UsageCheckResponse>(res);
+}
+
+export async function sendChat(
+  payload: ChatRequestPayload
+): Promise<ChatResponsePayload> {
+  const res = await fetch(`${API_BASE}/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return handle<ChatResponsePayload>(res);
 }

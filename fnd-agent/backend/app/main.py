@@ -1,12 +1,13 @@
 import os
-from typing import Callable
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import product_loader, rules_engine
+from . import product_loader
 from .api_products import router as products_router
-from .models import ProductDetail, UsageCheckRequest, UsageCheckResponse, UseCase
+from .chat_service import ChatRequest, ChatResponse, ChatService
+from .models import ProductDetail, UsageCheckRequest, UsageCheckResponse
+from .use_case_checks import USE_CASE_CHECKERS
 
 app = FastAPI(title="FND Agent API", version="0.1.0")
 
@@ -46,28 +47,7 @@ def health():
 
 # /products: search + detail
 app.include_router(products_router, prefix="/products", tags=["products"])
-
-USE_CASE_CHECKERS: dict[UseCase, Callable[[ProductDetail], UsageCheckResponse]] = {
-    UseCase.bathroom_floor: rules_engine.check_bathroom_floor,
-    UseCase.shower_floor: rules_engine.check_shower_floor,
-    UseCase.shower_wall: rules_engine.check_shower_wall,
-    UseCase.fireplace_surround: rules_engine.check_fireplace_surround,
-    UseCase.radiant_heat: rules_engine.check_radiant_heat,
-    UseCase.outdoor_patio: rules_engine.check_outdoor_patio,
-    UseCase.pool_deck: rules_engine.check_pool_deck,
-    UseCase.kitchen_backsplash: rules_engine.check_kitchen_backsplash,
-    UseCase.commercial_heavy_floor: rules_engine.check_commercial_heavy_floor,
-    UseCase.laundry_room_floor: rules_engine.check_laundry_room_floor,
-    UseCase.basement_floor: rules_engine.check_basement_floor,
-    UseCase.steam_shower_enclosure: rules_engine.check_steam_shower_enclosure,
-    UseCase.outdoor_kitchen_counter: rules_engine.check_outdoor_kitchen_counter,
-    UseCase.garage_workshop_floor: rules_engine.check_garage_workshop_floor,
-    UseCase.driveway_paver: rules_engine.check_driveway_paver,
-    UseCase.stair_tread: rules_engine.check_stair_tread,
-    UseCase.commercial_kitchen_floor: rules_engine.check_commercial_kitchen_floor,
-    UseCase.pool_interior: rules_engine.check_pool_interior,
-    UseCase.exterior_wall_cladding: rules_engine.check_exterior_wall_cladding,
-}
+chat_service = ChatService()
 
 
 def get_db():
@@ -101,3 +81,8 @@ def check_product_usage(
         raise HTTPException(status_code=400, detail="Unsupported use case")
 
     return checker(detail)
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat_endpoint(payload: ChatRequest, conn=Depends(get_db)):
+    return chat_service.handle_chat(payload, conn)
