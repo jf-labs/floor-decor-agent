@@ -106,7 +106,7 @@ If the chat endpoint responds with `400` complaining about missing embeddings, r
 
 ---
 
-## Next Steps (ideas)
+## Next Steps
 
 - Add streaming responses from Ollama for more interactive chat.
 - Persist chat history per session and allow exporting transcripts.
