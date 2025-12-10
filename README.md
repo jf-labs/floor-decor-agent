@@ -55,6 +55,19 @@ python -m app.build_embeddings
 
 This writes `data/product_embeddings.npz` and metadata next to the SQLite DB.
 
+### Refresh the SQLite data
+
+The scraper populates `data/fnd_products.db` from Floor & Decor. Run it from the repo root (or wherever `scrape_products.py` lives), supplying the store ID you care about:
+
+```bash
+python scrape_products.py --store-id 238
+```
+
+Optional flags:
+
+- `--db path/to/file.db` (defaults to `data/fnd_products.db`)
+- `--ttl-days N` re-scrapes SKUs older than `N` days.
+
 ### Environment variables
 
 Optional tweaks (can be exported before launching Uvicorn):
